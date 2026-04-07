@@ -1,26 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-
-interface MarketStats {
-  averagePrice: number
-  totalProperties: number
-  averageSqFt: number
-}
-
-interface PropertyData {
-  square_footage: number
-  bedrooms: number
-  bathrooms: number
-  year_built: number
-  lot_size: number
-  distance_to_city_center: number
-  school_rating: number
-}
+import { useState, useEffect, FormEvent, ChangeEvent } from 'react'
+import { apiService } from '@/lib/apiService'
+import type { MarketStats, PropertyData, PredictionResponse } from '@/lib/types'
 
 export default function MarketAnalysis() {
   const [stats, setStats] = useState<MarketStats | null>(null)
   const [whatIfResult, setWhatIfResult] = useState<number | null>(null)
+  const [statsError, setStatsError] = useState<string | null>(null)
+  const [whatIfError, setWhatIfError] = useState<string | null>(null)
   const [formData, setFormData] = useState<PropertyData>({
     square_footage: 0,
     bedrooms: 0,
@@ -38,35 +26,33 @@ export default function MarketAnalysis() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://localhost:3002/api/market-stats')
-      const data = await response.json()
+      setStatsError(null)
+      const data = await apiService.getMarketStats()
       setStats(data)
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load market statistics'
+      setStatsError(message)
       console.error('Error fetching stats:', error)
     }
   }
 
-  const handleWhatIf = async (e: React.FormEvent) => {
+  const handleWhatIf = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
+    setWhatIfError(null)
     try {
-      const response = await fetch('http://localhost:3002/api/what-if', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      })
-      const data = await response.json()
+      const data = await apiService.runWhatIfAnalysis(formData)
       setWhatIfResult(data.predicted_price)
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to run what-if analysis'
+      setWhatIfError(message)
       console.error('Error:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
@@ -81,15 +67,21 @@ export default function MarketAnalysis() {
       <div className="grid md:grid-cols-2 gap-8">
         <div>
           <h2 className="text-xl font-semibold mb-4">Market Statistics</h2>
+          {statsError && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              <p className="font-semibold">Error Loading Statistics</p>
+              <p className="text-sm">{statsError}</p>
+            </div>
+          )}
           {stats ? (
             <div className="bg-white p-6 rounded-lg shadow-md">
               <p className="mb-2"><strong>Average Price:</strong> ${stats.averagePrice.toLocaleString()}</p>
               <p className="mb-2"><strong>Total Properties:</strong> {stats.totalProperties}</p>
               <p className="mb-2"><strong>Average SqFt:</strong> {stats.averageSqFt}</p>
             </div>
-          ) : (
-            <p>Loading stats...</p>
-          )}
+          ) : !statsError ? (
+            <p className="text-gray-500">Loading stats...</p>
+          ) : null}
         </div>
 
         <div>
@@ -177,6 +169,12 @@ export default function MarketAnalysis() {
                 />
               </div>
             </div>
+            {whatIfError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mt-4">
+                <p className="font-semibold">Error Running Analysis</p>
+                <p className="text-sm">{whatIfError}</p>
+              </div>
+            )}
             <button
               type="submit"
               disabled={loading}

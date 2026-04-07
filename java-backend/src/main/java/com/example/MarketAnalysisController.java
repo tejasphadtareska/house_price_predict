@@ -3,10 +3,48 @@ package com.example;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import jakarta.validation.constraints.*;
+import jakarta.validation.Valid;
 import java.util.Map;
 import java.util.HashMap;
 
+class PropertyFeaturesDTO {
+    @NotNull(message = "square_footage is required")
+    @Positive(message = "square_footage must be positive")
+    public Double square_footage;
+
+    @NotNull(message = "bedrooms is required")
+    @Min(value = 1, message = "bedrooms must be at least 1")
+    @Max(value = 20, message = "bedrooms must not exceed 20")
+    public Integer bedrooms;
+
+    @NotNull(message = "bathrooms is required")
+    @Positive(message = "bathrooms must be positive")
+    @Max(value = 20, message = "bathrooms must not exceed 20")
+    public Double bathrooms;
+
+    @NotNull(message = "year_built is required")
+    @Min(value = 1800, message = "year_built must be >= 1800")
+    @Max(value = 2100, message = "year_built must be <= 2100")
+    public Integer year_built;
+
+    @NotNull(message = "lot_size is required")
+    @Positive(message = "lot_size must be positive")
+    public Double lot_size;
+
+    @NotNull(message = "distance_to_city_center is required")
+    @PositiveOrZero(message = "distance_to_city_center must be >= 0")
+    public Double distance_to_city_center;
+
+    @NotNull(message = "school_rating is required")
+    @Min(value = 0, message = "school_rating must be >= 0")
+    @Max(value = 10, message = "school_rating must be <= 10")
+    public Double school_rating;
+}
+
 @RestController
+@CrossOrigin(origins = "http://localhost:3000", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.OPTIONS})
 @RequestMapping("/api")
 public class MarketAnalysisController {
 
@@ -23,13 +61,25 @@ public class MarketAnalysisController {
     }
 
     @PostMapping("/what-if")
-    public ResponseEntity<Map<String, Object>> whatIf(@RequestBody Map<String, Object> features) {
+    public ResponseEntity<Map<String, Object>> whatIf(@Valid @RequestBody PropertyFeaturesDTO features) {
         try {
+            if (features == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Request body cannot be empty"));
+            }
+            
             // Call ML API
-            ResponseEntity<Map> response = restTemplate.postForEntity(ML_API_URL + "/predict", Map.of("features", features), Map.class);
+            Map<String, Object> mlRequest = Map.of("features", features);
+            ResponseEntity<Map> response = restTemplate.postForEntity(ML_API_URL + "/predict", mlRequest, Map.class);
+            
+            if (response.getBody() == null || !response.getBody().containsKey("predicted_price")) {
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of("error", "Invalid response from ML API"));
+            }
+            
             return ResponseEntity.ok(response.getBody());
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of("error", "ML API is unavailable: " + e.getMessage()));
         }
     }
 

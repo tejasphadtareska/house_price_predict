@@ -1,22 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-
-interface PropertyData {
-  square_footage: number
-  bedrooms: number
-  bathrooms: number
-  year_built: number
-  lot_size: number
-  distance_to_city_center: number
-  school_rating: number
-}
-
-interface Estimate {
-  data: PropertyData
-  price: number
-  timestamp: string
-}
+import { useState, FormEvent, ChangeEvent } from 'react'
+import { apiService } from '@/lib/apiService'
+import type { PropertyData, PredictionResponse, EstimateRecord } from '@/lib/types'
 
 export default function PropertyEstimator() {
   const [formData, setFormData] = useState<PropertyData>({
@@ -30,23 +16,18 @@ export default function PropertyEstimator() {
   })
   const [prediction, setPrediction] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-  const [history, setHistory] = useState<Estimate[]>([])
+  const [history, setHistory] = useState<EstimateRecord[]>([])
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
+    setError(null)
     try {
-      const response = await fetch('http://localhost:3001/estimate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ features: formData })
-      })
-      const data = await response.json()
+      const data = await apiService.getPropertyEstimate(formData)
       const price = data.predicted_price
       setPrediction(price)
-      const estimate: Estimate = {
+      const estimate: EstimateRecord = {
         data: { ...formData },
         price,
         timestamp: new Date().toLocaleString()
@@ -54,12 +35,13 @@ export default function PropertyEstimator() {
       setHistory(prev => [estimate, ...prev])
     } catch (error) {
       console.error('Error:', error)
+      setError(error instanceof Error ? error.message : 'An error occurred')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
@@ -75,6 +57,12 @@ export default function PropertyEstimator() {
         <div>
           <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-xl font-semibold mb-4">Property Details</h2>
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <p className="font-semibold">Error</p>
+                <p className="text-sm">{error}</p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Square Footage</label>
@@ -167,9 +155,15 @@ export default function PropertyEstimator() {
           </form>
 
           {prediction !== null && (
-            <div className="mt-6 bg-green-100 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold">Estimated Value</h3>
-              <p className="text-2xl font-bold text-green-800">${prediction.toLocaleString()}</p>
+            <div className="mt-6 bg-green-100 border border-green-400 p-4 rounded-lg">
+              <h3 className="text-lg font-semibold text-green-800">Estimated Value</h3>
+              <p className="text-2xl font-bold text-green-700">${prediction.toLocaleString()}</p>
+            </div>
+          )}
+          {error && (
+            <div className="mt-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <p className="font-semibold">Error</p>
+              <p className="text-sm mt-1">{error}</p>
             </div>
           )}
         </div>
