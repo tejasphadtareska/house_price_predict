@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
@@ -33,7 +35,7 @@ class PropertyFeatures(BaseModel):
 class EstimateRequest(BaseModel):
     features: PropertyFeatures
 
-ML_API_URL = "http://localhost:8000"
+ML_API_URL = os.getenv("ML_API_URL", "http://localhost:8000").rstrip("/")
 
 @app.post("/estimate")
 def estimate_property(request: EstimateRequest):

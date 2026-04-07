@@ -66,36 +66,36 @@ mvn --version
 
 ## 🚀 Quick Start (Docker Compose)
 
-### ✨ Fully Automatic (Recommended)
+### Docker Compose
 
-**Just run this one batch file (one-click setup):**
+Run everything from the repo root with a single command:
 
 ```powershell
-c:\capco\setup-and-start.bat
+cd c:\capco
+docker compose up --build
 ```
 
-The script will:
-1. ✅ Verify Docker is running
-2. ✅ Build Java backend locally
-3. ✅ Create Docker images
-4. ✅ Start all 4 services
-5. ✅ Open browser to http://localhost:3000
+This will build and start:
+1. `ml-api`
+2. `python-backend`
+3. `java-backend`
+4. `portal`
 
-**Done!** All services ready in ~3-5 minutes.
+Useful follow-up commands:
 
-### Or Manual Docker Compose
+```powershell
+# Run in detached mode
+docker compose up -d --build
 
-```bash
-# Terminal 1: Build Java locally
-cd c:\capco\java-backend
-mvn clean package -DskipTests
+# View logs for all services
+docker compose logs -f
 
-# Terminal 2: Start all services
-cd c:\capco
-docker-compose up -d
+# View logs for one service
+docker compose logs -f portal
+docker compose logs -f python-backend
 
-# View logs
-docker-compose logs -f
+# Stop everything
+docker compose down
 ```
 
 **Access the application:**
@@ -358,17 +358,13 @@ NEXT_PUBLIC_PYTHON_API_URL=https://your-api-domain.com
 
 ### Docker Compose Build Failures
 
-If you encounter Maven build errors when running `docker-compose up -d`:
+If the Java image fails during the Maven build, retry with a clean rebuild:
 
-```bash
-# Option 1: Use development compose (excludes Java Docker build)
-docker-compose -f docker-compose-dev.yml up -d
-
-# Then build Java locally in a separate terminal:
-cd java-backend && mvn clean package -DskipTests && java -jar target/housing-market-*.jar
+```powershell
+docker compose down -v
+docker compose build --no-cache java-backend
+docker compose up --build
 ```
-
-**See [DOCKER_TROUBLESHOOTING.md](DOCKER_TROUBLESHOOTING.md) for complete Docker troubleshooting guide.**
 
 ### Docker Not Found
 

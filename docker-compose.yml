@@ -1,0 +1,65 @@
+services:
+  ml-api:
+    build:
+      context: ./ml-api
+    container_name: capco-ml-api
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  python-backend:
+    build:
+      context: ./python-backend
+    container_name: capco-python-backend
+    depends_on:
+      ml-api:
+        condition: service_healthy
+    environment:
+      ML_API_URL: http://ml-api:8000
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3001/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  java-backend:
+    build:
+      context: ./java-backend
+    container_name: capco-java-backend
+    depends_on:
+      ml-api:
+        condition: service_healthy
+    environment:
+      ML_API_URL: http://ml-api:8000
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  portal:
+    build:
+      context: ./portal
+      args:
+        NEXT_PUBLIC_JAVA_API_URL: http://localhost:8080
+        NEXT_PUBLIC_PYTHON_API_URL: http://localhost:3001
+    container_name: capco-portal
+    depends_on:
+      python-backend:
+        condition: service_healthy
+      java-backend:
+        condition: service_started
+    environment:
+      NEXT_PUBLIC_JAVA_API_URL: http://localhost:8080
+      NEXT_PUBLIC_PYTHON_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    restart: unless-stopped

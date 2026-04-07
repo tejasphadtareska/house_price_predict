@@ -49,7 +49,8 @@ class PropertyFeaturesDTO {
 public class MarketAnalysisController {
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final String ML_API_URL = "http://localhost:8000";
+    private static final String DEFAULT_ML_API_URL = "http://localhost:8000";
+    private final String mlApiUrl = System.getenv().getOrDefault("ML_API_URL", DEFAULT_ML_API_URL).replaceAll("/+$", "");
 
     @GetMapping("/market-stats")
     public ResponseEntity<Map<String, Object>> getMarketStats() {
@@ -69,7 +70,7 @@ public class MarketAnalysisController {
             
             // Call ML API
             Map<String, Object> mlRequest = Map.of("features", features);
-            ResponseEntity<Map> response = restTemplate.postForEntity(ML_API_URL + "/predict", mlRequest, Map.class);
+            ResponseEntity<Map> response = restTemplate.postForEntity(mlApiUrl + "/predict", mlRequest, Map.class);
             
             if (response.getBody() == null || !response.getBody().containsKey("predicted_price")) {
                 return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
