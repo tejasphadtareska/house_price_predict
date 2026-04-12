@@ -7,8 +7,15 @@ const validateMarketStats = (data: unknown): MarketStats => {
     throw new Error('Invalid market stats response: not an object')
   }
   const obj = data as Record<string, unknown>
-  if (typeof obj.averagePrice !== 'number' || typeof obj.totalProperties !== 'number' || typeof obj.averageSqFt !== 'number') {
-    throw new Error('Invalid market stats: missing required fields (averagePrice, totalProperties, averageSqFt)')
+  const requiredMaps = ['priceDistribution', 'bedroomDistribution', 'bathroomDistribution', 'yearBuiltDistribution'] as const
+  if (
+    typeof obj.averagePrice !== 'number' ||
+    typeof obj.medianPrice !== 'number' ||
+    typeof obj.totalProperties !== 'number' ||
+    typeof obj.averageSqFt !== 'number' ||
+    requiredMaps.some(key => !obj[key] || typeof obj[key] !== 'object')
+  ) {
+    throw new Error('Invalid market stats: missing required analytics fields')
   }
   return data as MarketStats
 }

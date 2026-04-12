@@ -1,47 +1,21 @@
 package com.example;
 
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
 import jakarta.validation.constraints.*;
 import jakarta.validation.Valid;
 import java.util.Map;
-import java.util.HashMap;
-
-class PropertyFeaturesDTO {
-    @NotNull(message = "square_footage is required")
-    @Positive(message = "square_footage must be positive")
-    public Double square_footage;
-
-    @NotNull(message = "bedrooms is required")
-    @Min(value = 1, message = "bedrooms must be at least 1")
-    @Max(value = 20, message = "bedrooms must not exceed 20")
-    public Integer bedrooms;
-
-    @NotNull(message = "bathrooms is required")
-    @Positive(message = "bathrooms must be positive")
-    @Max(value = 20, message = "bathrooms must not exceed 20")
-    public Double bathrooms;
-
-    @NotNull(message = "year_built is required")
-    @Min(value = 1800, message = "year_built must be >= 1800")
-    @Max(value = 2100, message = "year_built must be <= 2100")
-    public Integer year_built;
-
-    @NotNull(message = "lot_size is required")
-    @Positive(message = "lot_size must be positive")
-    public Double lot_size;
-
-    @NotNull(message = "distance_to_city_center is required")
-    @PositiveOrZero(message = "distance_to_city_center must be >= 0")
-    public Double distance_to_city_center;
-
-    @NotNull(message = "school_rating is required")
-    @Min(value = 0, message = "school_rating must be >= 0")
-    @Max(value = 10, message = "school_rating must be <= 10")
-    public Double school_rating;
-}
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
 
 @RestController
 @CrossOrigin(origins = "http://localhost:3000", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.OPTIONS})
@@ -51,14 +25,131 @@ public class MarketAnalysisController {
     private final RestTemplate restTemplate = new RestTemplate();
     private static final String DEFAULT_ML_API_URL = "http://localhost:8000";
     private final String mlApiUrl = System.getenv().getOrDefault("ML_API_URL", DEFAULT_ML_API_URL).replaceAll("/+$", "");
+    private final MarketAnalysisService marketAnalysisService;
+
+    public MarketAnalysisController(MarketAnalysisService marketAnalysisService) {
+        this.marketAnalysisService = marketAnalysisService;
+    }
 
     @GetMapping("/market-stats")
-    public ResponseEntity<Map<String, Object>> getMarketStats() {
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("averagePrice", 250000);
-        stats.put("totalProperties", 49);
-        stats.put("averageSqFt", 1800);
-        return ResponseEntity.ok(stats);
+    public ResponseEntity<MarketStatsResponse> getMarketStats(
+        @RequestParam(required = false) Integer bedrooms,
+        @RequestParam(required = false) Double bathrooms,
+        @RequestParam(required = false) Integer yearBuilt,
+        @RequestParam(required = false) Double minPrice,
+        @RequestParam(required = false) Double maxPrice,
+        @RequestParam(required = false) Double minSquareFootage,
+        @RequestParam(required = false) Double maxSquareFootage,
+        @RequestParam(required = false) Double minLotSize,
+        @RequestParam(required = false) Double maxLotSize,
+        @RequestParam(required = false) Double minDistanceToCityCenter,
+        @RequestParam(required = false) Double maxDistanceToCityCenter,
+        @RequestParam(required = false) Double minSchoolRating,
+        @RequestParam(required = false) Double maxSchoolRating,
+        @RequestParam(required = false) Integer minYearBuilt,
+        @RequestParam(required = false) Integer maxYearBuilt
+    ) {
+        return ResponseEntity.ok(marketAnalysisService.getMarketStats(buildFilter(
+            bedrooms,
+            bathrooms,
+            yearBuilt,
+            minPrice,
+            maxPrice,
+            minSquareFootage,
+            maxSquareFootage,
+            minLotSize,
+            maxLotSize,
+            minDistanceToCityCenter,
+            maxDistanceToCityCenter,
+            minSchoolRating,
+            maxSchoolRating,
+            minYearBuilt,
+            maxYearBuilt
+        )));
+    }
+
+    @GetMapping(value = "/market-stats/export.csv", produces = "text/csv")
+    public ResponseEntity<byte[]> exportCsv(
+        @RequestParam(required = false) Integer bedrooms,
+        @RequestParam(required = false) Double bathrooms,
+        @RequestParam(required = false) Integer yearBuilt,
+        @RequestParam(required = false) Double minPrice,
+        @RequestParam(required = false) Double maxPrice,
+        @RequestParam(required = false) Double minSquareFootage,
+        @RequestParam(required = false) Double maxSquareFootage,
+        @RequestParam(required = false) Double minLotSize,
+        @RequestParam(required = false) Double maxLotSize,
+        @RequestParam(required = false) Double minDistanceToCityCenter,
+        @RequestParam(required = false) Double maxDistanceToCityCenter,
+        @RequestParam(required = false) Double minSchoolRating,
+        @RequestParam(required = false) Double maxSchoolRating,
+        @RequestParam(required = false) Integer minYearBuilt,
+        @RequestParam(required = false) Integer maxYearBuilt
+    ) {
+        byte[] body = marketAnalysisService.exportCsv(buildFilter(
+            bedrooms,
+            bathrooms,
+            yearBuilt,
+            minPrice,
+            maxPrice,
+            minSquareFootage,
+            maxSquareFootage,
+            minLotSize,
+            maxLotSize,
+            minDistanceToCityCenter,
+            maxDistanceToCityCenter,
+            minSchoolRating,
+            maxSchoolRating,
+            minYearBuilt,
+            maxYearBuilt
+        ));
+
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=market-stats.csv")
+            .contentType(MediaType.parseMediaType("text/csv"))
+            .body(body);
+    }
+
+    @GetMapping(value = "/market-stats/export.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> exportPdf(
+        @RequestParam(required = false) Integer bedrooms,
+        @RequestParam(required = false) Double bathrooms,
+        @RequestParam(required = false) Integer yearBuilt,
+        @RequestParam(required = false) Double minPrice,
+        @RequestParam(required = false) Double maxPrice,
+        @RequestParam(required = false) Double minSquareFootage,
+        @RequestParam(required = false) Double maxSquareFootage,
+        @RequestParam(required = false) Double minLotSize,
+        @RequestParam(required = false) Double maxLotSize,
+        @RequestParam(required = false) Double minDistanceToCityCenter,
+        @RequestParam(required = false) Double maxDistanceToCityCenter,
+        @RequestParam(required = false) Double minSchoolRating,
+        @RequestParam(required = false) Double maxSchoolRating,
+        @RequestParam(required = false) Integer minYearBuilt,
+        @RequestParam(required = false) Integer maxYearBuilt
+    ) {
+        byte[] body = marketAnalysisService.exportPdf(buildFilter(
+            bedrooms,
+            bathrooms,
+            yearBuilt,
+            minPrice,
+            maxPrice,
+            minSquareFootage,
+            maxSquareFootage,
+            minLotSize,
+            maxLotSize,
+            minDistanceToCityCenter,
+            maxDistanceToCityCenter,
+            minSchoolRating,
+            maxSchoolRating,
+            minYearBuilt,
+            maxYearBuilt
+        ));
+
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=market-stats.pdf")
+            .contentType(MediaType.APPLICATION_PDF)
+            .body(body);
     }
 
     @PostMapping("/what-if")
@@ -87,5 +178,41 @@ public class MarketAnalysisController {
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health() {
         return ResponseEntity.ok(Map.of("status", "healthy"));
+    }
+
+    private MarketStatsFilter buildFilter(
+        Integer bedrooms,
+        Double bathrooms,
+        Integer yearBuilt,
+        Double minPrice,
+        Double maxPrice,
+        Double minSquareFootage,
+        Double maxSquareFootage,
+        Double minLotSize,
+        Double maxLotSize,
+        Double minDistanceToCityCenter,
+        Double maxDistanceToCityCenter,
+        Double minSchoolRating,
+        Double maxSchoolRating,
+        Integer minYearBuilt,
+        Integer maxYearBuilt
+    ) {
+        return new MarketStatsFilter(
+            bedrooms,
+            bathrooms,
+            yearBuilt,
+            minPrice,
+            maxPrice,
+            minSquareFootage,
+            maxSquareFootage,
+            minLotSize,
+            maxLotSize,
+            minDistanceToCityCenter,
+            maxDistanceToCityCenter,
+            minSchoolRating,
+            maxSchoolRating,
+            minYearBuilt,
+            maxYearBuilt
+        );
     }
 }

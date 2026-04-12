@@ -10,8 +10,13 @@ export interface PropertyData {
 
 export interface MarketStats {
   averagePrice: number
+  medianPrice: number
   totalProperties: number
   averageSqFt: number
+  priceDistribution: Record<string, number>
+  bedroomDistribution: Record<string, number>
+  bathroomDistribution: Record<string, number>
+  yearBuiltDistribution: Record<string, number>
 }
 
 export interface PredictionResponse {
@@ -19,6 +24,7 @@ export interface PredictionResponse {
 }
 
 export interface EstimateRecord {
+  id: string
   data: PropertyData
   price: number
   timestamp: string
